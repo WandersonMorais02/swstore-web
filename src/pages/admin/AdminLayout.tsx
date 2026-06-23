@@ -1,14 +1,16 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import { BarChart3, Box, Home, Settings, Truck, Users } from 'lucide-react'
+import { TicketPercent } from 'lucide-react'
 
 const items = [
   { to: '/admin', label: 'Resumo', icon: Home, end: true },
   { to: '/admin/produtos', label: 'Produtos', icon: Box },
   { to: '/admin/sellers', label: 'Sellers', icon: Users },
+  { to: '/admin/usuarios', label: 'Usuários', icon: Users },
   { to: '/admin/financeiro', label: 'Financeiro', icon: BarChart3 },
   { to: '/admin/fretes-locais', label: 'Fretes locais', icon: Truck },
+  { to: '/admin/cupons', label: 'Cupons', icon: TicketPercent },
   { to: '/admin/configuracoes', label: 'Configurações', icon: Settings },
-  { to: '/admin/usuarios', label: 'Usuários', icon: Users },
 ]
 
 export function AdminLayout() {
