@@ -7,7 +7,8 @@ const items = [
   { to: '/admin/sellers', label: 'Sellers', icon: Users },
   { to: '/admin/financeiro', label: 'Financeiro', icon: BarChart3 },
   { to: '/admin/fretes-locais', label: 'Fretes locais', icon: Truck },
-  { to: '/admin/configuracoes', label: 'Configurações', icon: Settings }
+  { to: '/admin/configuracoes', label: 'Configurações', icon: Settings },
+  { to: '/admin/usuarios', label: 'Usuários', icon: Users },
 ]
 
 export function AdminLayout() {

@@ -67,3 +67,29 @@ export async function getAdminFinancial() {
   const { data } = await api.get('/dashboard/admin')
   return data
 }
+
+export async function getAdminUsers(params?: {
+  role?: string
+  search?: string
+}) {
+  const { data } = await api.get('/users', {
+    params
+  })
+
+  return data
+}
+
+export async function updateAdminUser(
+  userId: string,
+  payload: {
+    role?: 'ADMIN' | 'SELLER' | 'CUSTOMER'
+    isActive?: boolean
+    sellerProfile?: {
+      isApproved?: boolean
+      storeName?: string
+    }
+  }
+) {
+  const { data } = await api.patch(`/users/${userId}`, payload)
+  return data
+}

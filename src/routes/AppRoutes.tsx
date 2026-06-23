@@ -39,6 +39,7 @@ import { SellerSettingsPage } from '../pages/seller/SellerSettingsPage'
 import { AdminFinancePage } from '../pages/admin/AdminFinancePage'
 import { AdminSettingsPage } from '../pages/admin/AdminSettingsPage'
 import { AdminLocalShippingPage } from '../pages/admin/AdminLocalShippingPage'
+import { AdminUsersPage } from '../pages/admin/AdminUsersPage'
 
 export function AppRoutes() {
   return (
@@ -83,6 +84,7 @@ export function AppRoutes() {
                 <Route path="financeiro" element={<AdminFinancePage />} />
                 <Route path="configuracoes" element={<AdminSettingsPage />} />
                 <Route path="fretes-locais" element={<AdminLocalShippingPage />} />
+                <Route path="usuarios" element={<AdminUsersPage />} />
               </Route>
             </Route>
           </Route>

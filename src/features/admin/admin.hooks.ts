@@ -7,7 +7,9 @@ import {
   getAdminFinancial,
   getAdminSellers,
   approveSeller,
-  blockSeller
+  blockSeller,
+  getAdminUsers,
+  updateAdminUser
 } from './admin.service'
 
 import {
@@ -99,5 +101,41 @@ export function useAdminFinancial() {
   return useQuery({
     queryKey: ['admin', 'financial'],
     queryFn: getAdminFinancial
+  })
+}
+
+export function useAdminUsers(params?: {
+  role?: string
+  search?: string
+}) {
+  return useQuery({
+    queryKey: ['admin', 'users', params],
+    queryFn: () => getAdminUsers(params)
+  })
+}
+
+export function useUpdateAdminUser() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({
+      userId,
+      payload
+    }: {
+      userId: string
+      payload: {
+        role?: 'ADMIN' | 'SELLER' | 'CUSTOMER'
+        isActive?: boolean
+        sellerProfile?: {
+          isApproved?: boolean
+          storeName?: string
+        }
+      }
+    }) => updateAdminUser(userId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'users'] })
+      queryClient.invalidateQueries({ queryKey: ['admin', 'sellers'] })
+      queryClient.invalidateQueries({ queryKey: ['admin', 'dashboard'] })
+    }
   })
 }
