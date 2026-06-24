@@ -9,7 +9,7 @@ const items = [
   { to: '/admin/usuarios', label: 'Usuários', icon: Users },
   { to: '/admin/financeiro', label: 'Financeiro', icon: BarChart3 },
   { to: '/admin/fretes-locais', label: 'Fretes locais', icon: Truck },
-  { to: '/admin/cupons', label: 'Cupons', icon: TicketPercent },
+  { to: '/admin/coupons', label: 'Cupons', icon: TicketPercent },
   { to: '/admin/configuracoes', label: 'Configurações', icon: Settings },
 ]
 
