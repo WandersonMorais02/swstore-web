@@ -19,8 +19,8 @@ export default defineConfig({
       ],
 
       manifest: {
-        name: 'Digital Commerce',
-        short_name: 'DigitalCommerce',
+        name: 'SW Store',
+        short_name: 'SWStore',
         description:
           'Marketplace de produtos digitais, físicos e híbridos com downloads protegidos.',
         theme_color: '#0284c7',
