@@ -62,7 +62,7 @@ export function InstallPWAButton() {
         <div className="min-w-0 flex-1">
           <p className="font-black text-slate-950">Instale o app SWStore</p>
           <p className="text-xs leading-5 text-slate-500">
-            Acesse mais rápido e use a loja como app no celular.
+            Acesse mais rápido e use a loja como app no celular ou computador.
           </p>
         </div>
 
