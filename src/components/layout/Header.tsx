@@ -1,65 +1,103 @@
-import { Link, NavLink } from 'react-router-dom'
-import { Bell, Heart, Search, ShoppingCart, User } from 'lucide-react'
-import { InstallPWAButton } from '../pwa/InstallPWAButton'
+import { useEffect, useState } from 'react'
+import { Download, Smartphone, X } from 'lucide-react'
 
-const navItems = [
-  { to: '/', label: 'Início' },
-  { to: '/catalogo', label: 'Catálogo' },
-  { to: '/favoritos', label: 'Favoritos' },
-  { to: '/minha-conta', label: 'Minha conta' }
-]
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>
+  userChoice: Promise<{
+    outcome: 'accepted' | 'dismissed'
+    platform: string
+  }>
+}
 
-export function Header() {
+const DISMISSED_KEY = 'swstore:pwa-install-dismissed'
+
+export function InstallPWAButton() {
+  const [deferredPrompt, setDeferredPrompt] =
+    useState<BeforeInstallPromptEvent | null>(null)
+
+  const [installed, setInstalled] = useState(false)
+  const [dismissed, setDismissed] = useState(() => {
+    return localStorage.getItem(DISMISSED_KEY) === 'true'
+  })
+
+  useEffect(() => {
+    function handleBeforeInstallPrompt(event: Event) {
+      event.preventDefault()
+      setDeferredPrompt(event as BeforeInstallPromptEvent)
+    }
+
+    function handleInstalled() {
+      setInstalled(true)
+      setDeferredPrompt(null)
+      localStorage.setItem(DISMISSED_KEY, 'true')
+    }
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+    window.addEventListener('appinstalled', handleInstalled)
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+      window.removeEventListener('appinstalled', handleInstalled)
+    }
+  }, [])
+
+  async function installApp() {
+    if (!deferredPrompt) return
+
+    await deferredPrompt.prompt()
+    await deferredPrompt.userChoice
+
+    setDeferredPrompt(null)
+    setDismissed(true)
+    localStorage.setItem(DISMISSED_KEY, 'true')
+  }
+
+  function closeBanner() {
+    setDismissed(true)
+    localStorage.setItem(DISMISSED_KEY, 'true')
+  }
+
+  if (!deferredPrompt || installed || dismissed) return null
+
   return (
-    <>
-    <InstallPWAButton />
-    <header className="sticky top-0 z-40 border-b border-sky-100 bg-sky-50/95 backdrop-blur">
-      <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-4">
-        <Link to="/" className="text-lg font-black tracking-tight text-slate-950">
-          SW<span className="text-sky-600">Store</span>
-        </Link>
+    <div className="fixed inset-x-0 top-0 z-[90] px-4 pt-3">
+      <div className="mx-auto flex max-w-3xl items-center gap-3 rounded-3xl border border-sky-100 bg-white p-3 shadow-xl shadow-sky-100">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-sky-50 text-sky-600">
+          <Smartphone size={24} />
+        </div>
 
-        <nav className="hidden items-center gap-1 md:flex">
-          {navItems.map(item => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) =>
-                `rounded-full px-4 py-2 text-sm font-bold transition ${
-                  isActive
-                    ? 'bg-white text-sky-700 shadow-sm'
-                    : 'text-slate-600 hover:bg-white/70 hover:text-slate-950'
-                }`
-              }
-            >
-              {item.label}
-            </NavLink>
-          ))}
-        </nav>
+        <div className="min-w-0 flex-1">
+          <p className="font-black text-slate-950">Instale o app SWStore</p>
+          <p className="text-xs leading-5 text-slate-500">
+            Acesse mais rápido, receba uma experiência melhor e use como app no
+            celular.
+          </p>
+        </div>
 
-        <div className="flex items-center gap-1">
-          <Link className="rounded-full p-2 text-slate-700 hover:bg-white" to="/catalogo">
-            <Search size={21} />
-          </Link>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            onClick={closeBanner}
+            className="hidden rounded-2xl bg-slate-100 px-4 py-3 text-xs font-black text-slate-600 sm:inline-flex"
+          >
+            Agora não
+          </button>
 
-          <Link className="rounded-full p-2 text-slate-700 hover:bg-white" to="/favoritos">
-            <Heart size={21} />
-          </Link>
+          <button
+            onClick={installApp}
+            className="flex items-center gap-2 rounded-2xl bg-sky-600 px-4 py-3 text-xs font-black text-white"
+          >
+            <Download size={16} />
+            Instalar
+          </button>
 
-          <Link className="rounded-full p-2 text-slate-700 hover:bg-white" to="/carrinho">
-            <ShoppingCart size={21} />
-          </Link>
-
-          <Link className="rounded-full p-2 text-slate-700 hover:bg-white" to="/minha-conta">
-            <Bell size={21} />
-          </Link>
-
-          <Link className="hidden rounded-full bg-slate-950 p-2 text-white md:inline-flex" to="/minha-conta">
-            <User size={19} />
-          </Link>
+          <button
+            onClick={closeBanner}
+            className="rounded-full p-2 text-slate-400 hover:bg-slate-100"
+          >
+            <X size={18} />
+          </button>
         </div>
       </div>
-    </header>
-    </>
+    </div>
   )
 }
