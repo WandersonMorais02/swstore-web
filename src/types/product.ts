@@ -1,3 +1,14 @@
+export type Category = {
+  id: string
+  name: string
+  slug: string
+  description?: string
+  image?: ProductFile | null
+  isActive?: boolean
+  createdAt?: string
+  updatedAt?: string
+}
+
 export type ProductFile = {
   name: string
   url: string | null
