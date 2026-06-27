@@ -3,6 +3,7 @@ import { Bell, Heart, Search, ShoppingCart, User } from 'lucide-react'
 
 import { InstallPWAButton } from '../pwa/InstallPWAButton'
 import { useAuthStore } from '../../stores/auth.store'
+import { useCart } from '../../features/cart/cart.hooks'
 import { assetUrl } from '../../utils/assets'
 
 const navItems = [
@@ -15,6 +16,13 @@ const navItems = [
 export function Header() {
   const user = useAuthStore(state => state.user)
   const avatarUrl = user?.avatar?.url ? assetUrl(user.avatar.url) : null
+
+  const cartQuery = useCart()
+  const cartItems = cartQuery.data?.items || []
+
+  const cartItemsCount = cartItems.reduce((total, item) => {
+    return total + item.quantity
+  }, 0)
 
   return (
     <>
@@ -65,11 +73,17 @@ export function Header() {
             </Link>
 
             <Link
-              className="rounded-full p-2 text-slate-700 hover:bg-white"
+              className="relative rounded-full p-2 text-slate-700 hover:bg-white"
               to="/carrinho"
-              aria-label="Carrinho"
+              aria-label={`Carrinho com ${cartItemsCount} itens`}
             >
               <ShoppingCart size={21} />
+
+              {cartItemsCount > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-sky-600 px-1 text-[10px] font-black text-white ring-2 ring-sky-50">
+                  {cartItemsCount > 99 ? '99+' : cartItemsCount}
+                </span>
+              )}
             </Link>
 
             <Link
