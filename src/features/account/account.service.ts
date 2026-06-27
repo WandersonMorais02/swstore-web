@@ -27,7 +27,6 @@ export type Notification = {
 }
 
 export type UpdateProfilePayload = {
-  id: string
   name?: string
   avatar?: UploadedFile | null
 }
@@ -61,9 +60,7 @@ export async function readNotification(id: string) {
 }
 
 export async function updateMyProfile(payload: UpdateProfilePayload) {
-  const { id, ...dataToUpdate } = payload
-
-  const { data } = await api.patch<User>(`/users/${id}`, dataToUpdate)
+  const { data } = await api.patch<User>('/users/me', payload)
 
   return data
 }

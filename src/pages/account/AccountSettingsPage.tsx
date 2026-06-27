@@ -39,7 +39,6 @@ export function AccountSettingsPage() {
     if (!user?.id) return
 
     updateProfileMutation.mutate({
-      id: user.id,
       name,
       avatar
     })
