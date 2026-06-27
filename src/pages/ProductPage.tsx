@@ -3,12 +3,16 @@ import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
   Heart,
   Images,
   Minus,
   Plus,
   ShoppingCart,
-  Star
+  Star,
+  X,
+  ZoomIn
 } from 'lucide-react'
 
 import { SEO } from '../components/seo/SEO'
@@ -31,17 +35,13 @@ function sortImages(images: ProductFile[] = []) {
 }
 
 function getReviewCustomerName(review: Review) {
-  if (typeof review.customerId === 'string') {
-    return 'Cliente'
-  }
+  if (typeof review.customerId === 'string') return 'Cliente'
 
   return review.customerId?.name || 'Cliente'
 }
 
 function getReviewCustomerAvatar(review: Review) {
-  if (typeof review.customerId === 'string') {
-    return null
-  }
+  if (typeof review.customerId === 'string') return null
 
   return review.customerId?.avatar?.url || null
 }
@@ -62,6 +62,8 @@ export function ProductPage() {
   const [selectedImage, setSelectedImage] = useState(0)
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null)
   const [quantity, setQuantity] = useState(1)
+  const [lightboxOpen, setLightboxOpen] = useState(false)
+  const [touchStartX, setTouchStartX] = useState<number | null>(null)
 
   const images = useMemo(() => {
     return sortImages(product?.previewImages || [])
@@ -81,6 +83,45 @@ export function ProductPage() {
   const currentPrice = selectedPlan
     ? selectedPlan.price
     : product?.promotionalPrice ?? product?.price ?? 0
+
+  function selectPreviousImage() {
+    if (!images.length) return
+
+    setSelectedImage(current => {
+      if (current === 0) return images.length - 1
+      return current - 1
+    })
+  }
+
+  function selectNextImage() {
+    if (!images.length) return
+
+    setSelectedImage(current => {
+      if (current === images.length - 1) return 0
+      return current + 1
+    })
+  }
+
+    function handleTouchStart(event: React.TouchEvent<HTMLDivElement>) {
+    setTouchStartX(event.touches[0].clientX)
+  }
+
+  function handleTouchEnd(event: React.TouchEvent<HTMLDivElement>) {
+    if (touchStartX === null) return
+
+    const touchEndX = event.changedTouches[0].clientX
+    const diff = touchStartX - touchEndX
+
+    if (Math.abs(diff) > 50) {
+      if (diff > 0) {
+        selectNextImage()
+      } else {
+        selectPreviousImage()
+      }
+    }
+
+    setTouchStartX(null)
+  }
 
   function handleToggleFavorite() {
     if (!product) return
@@ -157,7 +198,7 @@ export function ProductPage() {
     product.description?.slice(0, 160) ||
     'Produto disponível no SWStore.'
 
-      return (
+  return (
     <>
       <SEO
         title={product.name}
@@ -190,24 +231,63 @@ export function ProductPage() {
         </div>
 
         <section className="overflow-hidden rounded-[2rem] bg-white shadow-sm">
-          <div className="relative aspect-square bg-slate-100">
+          <div
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+            className="relative aspect-square bg-slate-100"
+          >
             {image?.url ? (
-              <img
-                src={assetUrl(image.url)}
-                alt={image.alt || product.name}
-                className="h-full w-full object-cover"
-              />
+              <button
+                type="button"
+                onClick={() => setLightboxOpen(true)}
+                className="h-full w-full"
+              >
+                <img
+                  src={assetUrl(image.url)}
+                  alt={image.alt || product.name}
+                  className="h-full w-full object-cover"
+                />
+              </button>
             ) : (
               <div className="flex h-full items-center justify-center text-sm text-slate-400">
                 Sem imagem
               </div>
             )}
 
-            {images.length > 1 && (
-              <span className="absolute bottom-3 right-3 flex items-center gap-1 rounded-full bg-white/90 px-3 py-2 text-xs font-black text-slate-700 shadow-sm">
-                <Images size={15} />
-                {selectedImage + 1}/{images.length}
-              </span>
+                        {images.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={selectPreviousImage}
+                  className="absolute left-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-slate-700 shadow-sm"
+                >
+                  <ChevronLeft size={22} />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={selectNextImage}
+                  className="absolute right-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-slate-700 shadow-sm"
+                >
+                  <ChevronRight size={22} />
+                </button>
+
+                <span className="absolute bottom-3 right-3 flex items-center gap-1 rounded-full bg-white/90 px-3 py-2 text-xs font-black text-slate-700 shadow-sm">
+                  <Images size={15} />
+                  {selectedImage + 1}/{images.length}
+                </span>
+              </>
+            )}
+
+            {image?.url && (
+              <button
+                type="button"
+                onClick={() => setLightboxOpen(true)}
+                className="absolute bottom-3 left-3 flex items-center gap-1 rounded-full bg-white/90 px-3 py-2 text-xs font-black text-slate-700 shadow-sm"
+              >
+                <ZoomIn size={15} />
+                Zoom
+              </button>
             )}
           </div>
 
@@ -443,6 +523,54 @@ export function ProductPage() {
           </section>
         )}
       </div>
+
+      {lightboxOpen && image?.url && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+        >
+          <button
+            type="button"
+            onClick={() => setLightboxOpen(false)}
+            className="absolute right-4 top-4 flex h-11 w-11 items-center justify-center rounded-full bg-white text-slate-950"
+          >
+            <X size={22} />
+          </button>
+
+          {images.length > 1 && (
+            <>
+              <button
+                type="button"
+                onClick={selectPreviousImage}
+                className="absolute left-4 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white text-slate-950"
+              >
+                <ChevronLeft size={26} />
+              </button>
+
+              <button
+                type="button"
+                onClick={selectNextImage}
+                className="absolute right-4 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white text-slate-950"
+              >
+                <ChevronRight size={26} />
+              </button>
+            </>
+          )}
+
+          <img
+            src={assetUrl(image.url)}
+            alt={image.alt || product.name}
+            className="max-h-[88vh] max-w-full object-contain"
+          />
+
+          {images.length > 1 && (
+            <div className="absolute bottom-4 rounded-full bg-white px-4 py-2 text-xs font-black text-slate-950">
+              {selectedImage + 1}/{images.length}
+            </div>
+          )}
+        </div>
+      )}
     </>
   )
 }

@@ -36,7 +36,10 @@ export function AccountSettingsPage() {
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
+    if (!user?.id) return
+
     updateProfileMutation.mutate({
+      id: user.id,
       name,
       avatar
     })
