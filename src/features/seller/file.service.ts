@@ -6,6 +6,10 @@ export type UploadedFile = {
   path: string
   mimeType: string
   size: number
+
+  alt?: string
+  isMain?: boolean
+  order?: number
 }
 
 async function uploadFile(url: string, file: File) {
@@ -27,4 +31,8 @@ export async function uploadProductPreview(file: File) {
 
 export async function uploadProductOriginal(file: File) {
   return uploadFile('/files/products/originals', file)
+}
+
+export async function uploadUserAvatar(file: File) {
+  return uploadFile('/files/users/avatar', file)
 }

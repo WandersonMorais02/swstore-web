@@ -1,7 +1,15 @@
 /* eslint-disable react-hooks/preserve-manual-memoization */
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Heart, Minus, Plus, ShoppingCart, Star } from 'lucide-react'
+import {
+  ArrowLeft,
+  Heart,
+  Images,
+  Minus,
+  Plus,
+  ShoppingCart,
+  Star
+} from 'lucide-react'
 
 import { SEO } from '../components/seo/SEO'
 import { useProduct } from '../features/products/product.hooks'
@@ -10,6 +18,33 @@ import { useProductReviews } from '../features/products/review.hooks'
 import { useAddCartItem } from '../features/cart/cart.hooks'
 import { assetUrl } from '../utils/assets'
 import { formatMoney } from '../utils/money'
+import type { ProductFile } from '../types/product'
+import type { Review } from '../types/review'
+
+function sortImages(images: ProductFile[] = []) {
+  return [...images].sort((a, b) => {
+    if (a.isMain && !b.isMain) return -1
+    if (!a.isMain && b.isMain) return 1
+
+    return (a.order || 0) - (b.order || 0)
+  })
+}
+
+function getReviewCustomerName(review: Review) {
+  if (typeof review.customerId === 'string') {
+    return 'Cliente'
+  }
+
+  return review.customerId?.name || 'Cliente'
+}
+
+function getReviewCustomerAvatar(review: Review) {
+  if (typeof review.customerId === 'string') {
+    return null
+  }
+
+  return review.customerId?.avatar?.url || null
+}
 
 export function ProductPage() {
   const { slug } = useParams()
@@ -28,12 +63,19 @@ export function ProductPage() {
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null)
   const [quantity, setQuantity] = useState(1)
 
+  const images = useMemo(() => {
+    return sortImages(product?.previewImages || [])
+  }, [product?.previewImages])
+
   const isDigital = product?.type === 'DIGITAL' || product?.type === 'HYBRID'
   const isPhysical = product?.type === 'PHYSICAL' || product?.type === 'HYBRID'
 
   const selectedPlan = useMemo(() => {
     if (!product?.downloadPlans?.length) return null
-    return product.downloadPlans.find(plan => plan._id === selectedPlanId) || null
+
+    return product.downloadPlans.find(plan => {
+      return plan._id === selectedPlanId || plan.id === selectedPlanId
+    }) || null
   }, [product?.downloadPlans, selectedPlanId])
 
   const currentPrice = selectedPlan
@@ -42,6 +84,7 @@ export function ProductPage() {
 
   function handleToggleFavorite() {
     if (!product) return
+
     toggleFavoriteMutation.mutate(product.id)
   }
 
@@ -61,7 +104,9 @@ export function ProductPage() {
       },
       {
         onSuccess: () => {
-          if (goToCart) navigate('/carrinho')
+          if (goToCart) {
+            navigate('/carrinho')
+          }
         }
       }
     )
@@ -102,18 +147,17 @@ export function ProductPage() {
     )
   }
 
-  const image = product.previewImages?.[selectedImage]?.url
-  const mainImage = product.previewImages?.[0]?.url
-  const seoImage = mainImage ? assetUrl(mainImage) : undefined
+  const image = images[selectedImage]
+  const seoImage = images[0]?.url ? assetUrl(images[0].url) : undefined
   const seoUrl = window.location.href
   const isFavorited = favoriteQuery.data?.favorited === true
   const reviews = reviewsQuery.data || []
 
   const seoDescription =
     product.description?.slice(0, 160) ||
-    'Produto disponível no Digital Commerce.'
+    'Produto disponível no SWStore.'
 
-  return (
+      return (
     <>
       <SEO
         title={product.name}
@@ -126,6 +170,7 @@ export function ProductPage() {
       <div className="space-y-5">
         <div className="flex items-center justify-between">
           <button
+            type="button"
             onClick={() => navigate(-1)}
             className="flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-sm"
           >
@@ -133,6 +178,7 @@ export function ProductPage() {
           </button>
 
           <button
+            type="button"
             onClick={handleToggleFavorite}
             disabled={toggleFavoriteMutation.isPending}
             className={`flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-sm transition disabled:opacity-60 ${
@@ -144,11 +190,11 @@ export function ProductPage() {
         </div>
 
         <section className="overflow-hidden rounded-[2rem] bg-white shadow-sm">
-          <div className="aspect-square bg-slate-100">
-            {image ? (
+          <div className="relative aspect-square bg-slate-100">
+            {image?.url ? (
               <img
-                src={assetUrl(image)}
-                alt={product.name}
+                src={assetUrl(image.url)}
+                alt={image.alt || product.name}
                 className="h-full w-full object-cover"
               />
             ) : (
@@ -156,13 +202,21 @@ export function ProductPage() {
                 Sem imagem
               </div>
             )}
+
+            {images.length > 1 && (
+              <span className="absolute bottom-3 right-3 flex items-center gap-1 rounded-full bg-white/90 px-3 py-2 text-xs font-black text-slate-700 shadow-sm">
+                <Images size={15} />
+                {selectedImage + 1}/{images.length}
+              </span>
+            )}
           </div>
 
-          {product.previewImages?.length > 1 && (
+          {images.length > 1 && (
             <div className="flex gap-2 overflow-x-auto p-3">
-              {product.previewImages.map((item, index) => (
+              {images.map((item, index) => (
                 <button
-                  key={item.url}
+                  key={`${item.path}-${index}`}
+                  type="button"
                   onClick={() => setSelectedImage(index)}
                   className={`h-16 w-16 shrink-0 overflow-hidden rounded-2xl border ${
                     selectedImage === index
@@ -170,11 +224,15 @@ export function ProductPage() {
                       : 'border-slate-200'
                   }`}
                 >
-                  <img
-                    src={assetUrl(item.url)}
-                    alt=""
-                    className="h-full w-full object-cover"
-                  />
+                  {item.url ? (
+                    <img
+                      src={assetUrl(item.url)}
+                      alt={item.alt || product.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="h-full w-full bg-slate-100" />
+                  )}
                 </button>
               ))}
             </div>
@@ -224,54 +282,65 @@ export function ProductPage() {
             </h2>
 
             <div className="mt-3 space-y-3">
-              {product.downloadPlans.map(plan => (
-                <button
-                  key={plan._id}
-                  onClick={() => setSelectedPlanId(plan._id)}
-                  className={`w-full rounded-3xl border p-4 text-left ${
-                    selectedPlanId === plan._id
-                      ? 'border-sky-600 bg-sky-50'
-                      : 'border-slate-200 bg-white'
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="font-black text-slate-950">{plan.name}</p>
+              {product.downloadPlans.map(plan => {
+                const planId = plan._id || plan.id || ''
 
-                      <p className="text-xs text-slate-500">
-                        {plan.isPermanent
-                          ? 'Downloads permanentes'
-                          : `${plan.downloadLimit} downloads disponíveis`}
+                return (
+                  <button
+                    key={planId}
+                    type="button"
+                    onClick={() => setSelectedPlanId(planId)}
+                    className={`w-full rounded-3xl border p-4 text-left ${
+                      selectedPlanId === planId
+                        ? 'border-sky-600 bg-sky-50'
+                        : 'border-slate-200 bg-white'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="font-black text-slate-950">
+                          {plan.name}
+                        </p>
+
+                        <p className="text-xs text-slate-500">
+                          {plan.isPermanent
+                            ? 'Downloads permanentes'
+                            : `${plan.downloadLimit} downloads disponíveis`}
+                        </p>
+                      </div>
+
+                      <p className="font-black text-sky-600">
+                        {formatMoney(plan.price)}
                       </p>
                     </div>
-
-                    <p className="font-black text-sky-600">
-                      {formatMoney(plan.price)}
-                    </p>
-                  </div>
-                </button>
-              ))}
+                  </button>
+                )
+              })}
             </div>
           </section>
         )}
 
-        {isPhysical && (
+                {isPhysical && (
           <section className="rounded-[2rem] bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-black text-slate-950">Quantidade</h2>
+            <h2 className="text-lg font-black text-slate-950">
+              Quantidade
+            </h2>
 
-            <div className="mt-3 flex items-center gap-3">
+            <div className="mt-4 flex items-center gap-3">
               <button
+                type="button"
                 onClick={() => setQuantity(value => Math.max(1, value - 1))}
                 className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100"
               >
                 <Minus size={18} />
               </button>
 
-              <span className="w-10 text-center text-lg font-black">
+              <span className="min-w-10 text-center text-xl font-black">
                 {quantity}
               </span>
 
               <button
+                type="button"
                 onClick={() => setQuantity(value => value + 1)}
                 className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100"
               >
@@ -280,79 +349,99 @@ export function ProductPage() {
             </div>
 
             {typeof product.stock === 'number' && (
-              <p className="mt-2 text-xs text-slate-500">
-                Estoque disponível: {product.stock}
+              <p className="mt-3 text-xs text-slate-500">
+                Estoque disponível: <strong>{product.stock}</strong>
               </p>
             )}
           </section>
         )}
 
         <section className="rounded-[2rem] bg-white p-5 shadow-sm">
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-black text-slate-950">Avaliações</h2>
-              <p className="text-xs text-slate-500">
-                Opiniões de clientes que compraram
-              </p>
-            </div>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <button
+              type="button"
+              onClick={() => handleAddToCart(false)}
+              disabled={addCartMutation.isPending}
+              className="flex flex-1 items-center justify-center gap-2 rounded-2xl border border-sky-600 px-5 py-4 font-black text-sky-600 transition hover:bg-sky-50 disabled:opacity-60"
+            >
+              <ShoppingCart size={20} />
+              Adicionar ao carrinho
+            </button>
 
-            <span className="flex items-center gap-1 text-sm font-bold text-amber-500">
-              <Star size={16} fill="currentColor" />
-              {product.averageRating || 0}
-            </span>
-          </div>
-
-          <div className="space-y-3">
-            {reviews.map(review => (
-              <div
-                key={review.id}
-                className="rounded-3xl border border-slate-100 p-4"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <p className="font-black text-slate-950">
-                    {review.title || 'Avaliação'}
-                  </p>
-
-                  <span className="flex items-center gap-1 text-xs font-bold text-amber-500">
-                    <Star size={14} fill="currentColor" />
-                    {review.rating}
-                  </span>
-                </div>
-
-                {review.comment && (
-                  <p className="mt-2 text-sm leading-6 text-slate-500">
-                    {review.comment}
-                  </p>
-                )}
-              </div>
-            ))}
-
-            {!reviews.length && (
-              <p className="rounded-3xl bg-slate-50 p-5 text-center text-sm text-slate-500">
-                Nenhuma avaliação ainda.
-              </p>
-            )}
+            <button
+              type="button"
+              onClick={() => handleAddToCart(true)}
+              disabled={addCartMutation.isPending}
+              className="flex flex-1 items-center justify-center rounded-2xl bg-sky-600 px-5 py-4 font-black text-white transition hover:bg-sky-700 disabled:opacity-60"
+            >
+              Comprar agora
+            </button>
           </div>
         </section>
 
-        <div className="sticky bottom-20 z-30 grid grid-cols-2 gap-3 md:bottom-4">
-          <button
-            onClick={() => handleAddToCart(false)}
-            disabled={addCartMutation.isPending}
-            className="flex items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-4 text-sm font-black text-white shadow-lg disabled:opacity-60"
-          >
-            <ShoppingCart size={18} />
-            Adicionar
-          </button>
+        {reviews.length > 0 && (
+          <section className="rounded-[2rem] bg-white p-5 shadow-sm">
+            <h2 className="text-lg font-black text-slate-950">
+              Avaliações
+            </h2>
 
-          <button
-            onClick={() => handleAddToCart(true)}
-            disabled={addCartMutation.isPending}
-            className="rounded-2xl bg-sky-600 px-4 py-4 text-sm font-black text-white shadow-lg disabled:opacity-60"
-          >
-            Comprar agora
-          </button>
-        </div>
+            <div className="mt-4 space-y-4">
+              {reviews.map(review => {
+                const customerName = getReviewCustomerName(review)
+                const customerAvatar = getReviewCustomerAvatar(review)
+
+                return (
+                  <article
+                    key={review.id}
+                    className="rounded-2xl border border-slate-100 p-4"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-sky-50 text-sky-600">
+                          {customerAvatar ? (
+                            <img
+                              src={assetUrl(customerAvatar)}
+                              alt={customerName}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <span className="text-sm font-black">
+                              {customerName.charAt(0).toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="min-w-0">
+                          <p className="truncate font-black text-slate-950">
+                            {customerName}
+                          </p>
+
+                          {review.title && (
+                            <p className="text-xs font-bold text-slate-500">
+                              {review.title}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex shrink-0 items-center gap-1 text-amber-500">
+                        {Array.from({ length: review.rating }).map((_, index) => (
+                          <Star key={index} size={15} fill="currentColor" />
+                        ))}
+                      </div>
+                    </div>
+
+                    {review.comment && (
+                      <p className="mt-3 whitespace-pre-line text-sm leading-6 text-slate-600">
+                        {review.comment}
+                      </p>
+                    )}
+                  </article>
+                )
+              })}
+            </div>
+          </section>
+        )}
       </div>
     </>
   )

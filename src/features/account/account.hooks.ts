@@ -4,7 +4,9 @@ import {
   getMyLicenses,
   getMyNotifications,
   getMyOrders,
-  readNotification
+  readNotification,
+  updateMyProfile,
+  type UpdateProfilePayload
 } from './account.service'
 
 export function useMyOrders() {
@@ -44,6 +46,18 @@ export function useReadNotification() {
     mutationFn: (id: string) => readNotification(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['account', 'notifications'] })
+    }
+  })
+}
+
+export function useUpdateMyProfile() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (payload: UpdateProfilePayload) => updateMyProfile(payload),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['auth', 'me'] })
+      await queryClient.invalidateQueries({ queryKey: ['account'] })
     }
   })
 }

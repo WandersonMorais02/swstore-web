@@ -11,6 +11,17 @@ import {
 } from '../features/checkout/checkout.hooks'
 import { formatMoney } from '../utils/money'
 
+function getSellerId(seller: unknown) {
+  if (typeof seller === 'string') return seller
+
+  if (seller && typeof seller === 'object') {
+    const value = seller as { id?: string; _id?: string }
+    return value.id || value._id || ''
+  }
+
+  return ''
+}
+
 export function CheckoutPage() {
   const navigate = useNavigate()
 
@@ -36,7 +47,7 @@ export function CheckoutPage() {
       const product = item.productId
 
       const selectedPlan = product.downloadPlans?.find(plan => {
-        return plan._id === item.planId
+        return plan._id === item.planId || plan.id === item.planId
       })
 
       const price = selectedPlan
@@ -59,10 +70,8 @@ export function CheckoutPage() {
               item.productId.type === 'HYBRID'
             )
           })
-          .map(item => {
-            const seller = item.productId.sellerId
-            return typeof seller === 'string' ? seller : seller.id || seller._id
-          })
+          .map(item => getSellerId(item.productId.sellerId))
+          .filter(Boolean)
       )
     )
 
@@ -160,6 +169,7 @@ export function CheckoutPage() {
               </div>
 
               <button
+                type="button"
                 onClick={() => navigate('/minha-conta/enderecos')}
                 className="flex items-center gap-1 text-sm font-black text-sky-600"
               >
@@ -172,6 +182,7 @@ export function CheckoutPage() {
               {addresses.map(address => (
                 <button
                   key={address.id}
+                  type="button"
                   onClick={() => setAddressId(address.id)}
                   className={`w-full rounded-3xl border p-4 text-left ${
                     addressId === address.id
@@ -257,9 +268,7 @@ export function CheckoutPage() {
           <div className="mt-4 space-y-3 text-sm">
             <div className="flex justify-between text-slate-500">
               <span>Subtotal</span>
-              <strong className="text-slate-950">
-                {formatMoney(subtotal)}
-              </strong>
+              <strong className="text-slate-950">{formatMoney(subtotal)}</strong>
             </div>
 
             <div className="flex justify-between text-slate-500">
@@ -290,6 +299,7 @@ export function CheckoutPage() {
           </div>
 
           <button
+            type="button"
             onClick={handleFinish}
             disabled={createOrderMutation.isPending || paymentMutation.isPending}
             className="mt-5 w-full rounded-2xl bg-sky-600 px-5 py-4 text-sm font-black text-white disabled:opacity-60"

@@ -1,6 +1,14 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FileArchive, ImagePlus, Trash2, Upload } from 'lucide-react'
+import {
+  FileArchive,
+  GripVertical,
+  ImagePlus,
+  Info,
+  Star,
+  Trash2,
+  Upload
+} from 'lucide-react'
 
 import { useCategories } from '../../features/products/product.hooks'
 import { useCreateSellerProduct } from '../../features/seller/product.hooks'
@@ -12,6 +20,33 @@ import {
 import { assetUrl } from '../../utils/assets'
 
 type ProductType = 'DIGITAL' | 'PHYSICAL' | 'HYBRID'
+
+type PlanForm = {
+  name: string
+  price: string
+  downloadLimit: string
+  isPermanent: boolean
+}
+
+const MAX_PREVIEW_IMAGES = 15
+
+function moneyToCents(value: string) {
+  const clean = value.replace(/\D/g, '')
+  return Number(clean || 0)
+}
+
+function fileSizeMB(size: number) {
+  return (size / 1024 / 1024).toFixed(2)
+}
+
+function normalizeImages(images: UploadedFile[]) {
+  return images.map((image, index) => ({
+    ...image,
+    order: index,
+    isMain: index === 0,
+    alt: image.alt || image.name || ''
+  }))
+}
 
 export function SellerProductCreatePage() {
   const navigate = useNavigate()
@@ -37,10 +72,13 @@ export function SellerProductCreatePage() {
   const [previewImages, setPreviewImages] = useState<UploadedFile[]>([])
   const [digitalFiles, setDigitalFiles] = useState<UploadedFile[]>([])
 
+  const [selectedPreviewIndex, setSelectedPreviewIndex] = useState(0)
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
+
   const [uploadingPreview, setUploadingPreview] = useState(false)
   const [uploadingOriginal, setUploadingOriginal] = useState(false)
 
-  const [plans, setPlans] = useState([
+  const [plans, setPlans] = useState<PlanForm[]>([
     {
       name: 'Básico',
       price: '',
@@ -52,25 +90,43 @@ export function SellerProductCreatePage() {
   const isDigital = type === 'DIGITAL' || type === 'HYBRID'
   const isPhysical = type === 'PHYSICAL' || type === 'HYBRID'
 
-  function moneyToCents(value: string) {
-    const clean = value.replace(/\D/g, '')
-    return Number(clean || 0)
-  }
+  const previewTotalSize = useMemo(() => {
+    return previewImages.reduce((sum, image) => sum + image.size, 0)
+  }, [previewImages])
+
+  const selectedPreview = previewImages[selectedPreviewIndex]
 
   async function handlePreviewUpload(files: FileList | null) {
     if (!files?.length) return
 
+    const incomingFiles = Array.from(files)
+    const availableSlots = MAX_PREVIEW_IMAGES - previewImages.length
+
+    if (availableSlots <= 0) {
+      alert(`Você pode enviar no máximo ${MAX_PREVIEW_IMAGES} imagens.`)
+      return
+    }
+
+    const filesToUpload = incomingFiles.slice(0, availableSlots)
+
+    if (incomingFiles.length > availableSlots) {
+      alert(
+        `Limite de ${MAX_PREVIEW_IMAGES} imagens. Algumas imagens foram ignoradas.`
+      )
+    }
+
     setUploadingPreview(true)
 
     try {
-      const uploaded: UploadedFile[] = []
+      const uploaded = await Promise.all(
+        filesToUpload.map(file => uploadProductPreview(file))
+      )
 
-      for (const file of Array.from(files)) {
-        const result = await uploadProductPreview(file)
-        uploaded.push(result)
-      }
-
-      setPreviewImages(current => [...current, ...uploaded])
+      setPreviewImages(current => {
+        const next = normalizeImages([...current, ...uploaded])
+        setSelectedPreviewIndex(current.length)
+        return next
+      })
     } finally {
       setUploadingPreview(false)
     }
@@ -82,12 +138,9 @@ export function SellerProductCreatePage() {
     setUploadingOriginal(true)
 
     try {
-      const uploaded: UploadedFile[] = []
-
-      for (const file of Array.from(files)) {
-        const result = await uploadProductOriginal(file)
-        uploaded.push(result)
-      }
+      const uploaded = await Promise.all(
+        Array.from(files).map(file => uploadProductOriginal(file))
+      )
 
       setDigitalFiles(current => [...current, ...uploaded])
     } finally {
@@ -95,12 +148,79 @@ export function SellerProductCreatePage() {
     }
   }
 
-  function removePreview(index: number) {
-    setPreviewImages(current => current.filter((_, itemIndex) => itemIndex !== index))
+    function removePreview(index: number) {
+    setPreviewImages(current => {
+      const next = normalizeImages(
+        current.filter((_, itemIndex) => itemIndex !== index)
+      )
+
+      setSelectedPreviewIndex(value => {
+        if (next.length === 0) return 0
+        if (value >= next.length) return next.length - 1
+        if (index === value) return 0
+        return value
+      })
+
+      return next
+    })
+  }
+
+  function setMainPreview(index: number) {
+    setPreviewImages(current => {
+      const selected = current[index]
+      const others = current.filter((_, itemIndex) => itemIndex !== index)
+
+      setSelectedPreviewIndex(0)
+
+      return normalizeImages([selected, ...others])
+    })
+  }
+
+  function updatePreviewAlt(index: number, alt: string) {
+    setPreviewImages(current => {
+      const next = [...current]
+
+      next[index] = {
+        ...next[index],
+        alt
+      }
+
+      return normalizeImages(next)
+    })
+  }
+
+  function handleDragStart(index: number) {
+    setDraggedIndex(index)
+  }
+
+  function handleDragOver(event: React.DragEvent<HTMLDivElement>) {
+    event.preventDefault()
+  }
+
+  function handleDrop(index: number) {
+    if (draggedIndex === null || draggedIndex === index) {
+      setDraggedIndex(null)
+      return
+    }
+
+    setPreviewImages(current => {
+      const next = [...current]
+      const [draggedItem] = next.splice(draggedIndex, 1)
+
+      next.splice(index, 0, draggedItem)
+
+      setSelectedPreviewIndex(index)
+
+      return normalizeImages(next)
+    })
+
+    setDraggedIndex(null)
   }
 
   function removeDigitalFile(index: number) {
-    setDigitalFiles(current => current.filter((_, itemIndex) => itemIndex !== index))
+    setDigitalFiles(current => {
+      return current.filter((_, itemIndex) => itemIndex !== index)
+    })
   }
 
   function addPlan() {
@@ -117,7 +237,7 @@ export function SellerProductCreatePage() {
 
   function updatePlan(
     index: number,
-    field: keyof typeof plans[number],
+    field: keyof PlanForm,
     value: string | boolean
   ) {
     setPlans(current => {
@@ -133,7 +253,9 @@ export function SellerProductCreatePage() {
   }
 
   function removePlan(index: number) {
-    setPlans(current => current.filter((_, itemIndex) => itemIndex !== index))
+    setPlans(current => {
+      return current.filter((_, itemIndex) => itemIndex !== index)
+    })
   }
 
   function validateBeforeSubmit() {
@@ -167,6 +289,16 @@ export function SellerProductCreatePage() {
         alert('Informe o estoque do produto físico.')
         return false
       }
+
+      if (
+        Number(weight || 0) <= 0 ||
+        Number(width || 0) <= 0 ||
+        Number(height || 0) <= 0 ||
+        Number(length || 0) <= 0
+      ) {
+        alert('Informe peso, largura, altura e comprimento.')
+        return false
+      }
     }
 
     return true
@@ -184,11 +316,9 @@ export function SellerProductCreatePage() {
         name,
         description,
         price: moneyToCents(price),
-        promotionalPrice: promotionalPrice
-          ? moneyToCents(promotionalPrice)
-          : null,
+        promotionalPrice: promotionalPrice ? moneyToCents(promotionalPrice) : null,
 
-        previewImages,
+        previewImages: normalizeImages(previewImages),
         digitalFiles: isDigital ? digitalFiles : [],
 
         stock: isPhysical ? Number(stock || 0) : 0,
@@ -221,32 +351,46 @@ export function SellerProductCreatePage() {
     )
   }
 
-  return (
+    return (
     <form
       onSubmit={handleSubmit}
       className="space-y-5 rounded-[2rem] bg-white p-5 shadow-sm"
     >
       <div>
-        <h2 className="text-xl font-black text-slate-950">
-          Novo produto
-        </h2>
+        <h2 className="text-xl font-black text-slate-950">Novo produto</h2>
         <p className="text-sm text-slate-500">
-          Cadastre o produto com imagens de preview e arquivos originais.
+          Cadastre o produto com imagens de preview, descrição detalhada e
+          arquivos originais.
         </p>
       </div>
 
       <section className="rounded-3xl border border-slate-100 p-4">
-        <h3 className="font-black text-slate-950">Imagens de preview</h3>
-        <p className="mt-1 text-xs text-slate-500">
-          Essas imagens ficam públicas e em baixa resolução para o cliente visualizar.
-        </p>
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <h3 className="font-black text-slate-950">Imagens de preview</h3>
+            <p className="mt-1 text-xs text-slate-500">
+              A primeira imagem será a capa da vitrine. Arraste para reordenar.
+            </p>
+          </div>
 
-        <label className="mt-4 flex cursor-pointer flex-col items-center justify-center rounded-3xl border-2 border-dashed border-sky-200 bg-sky-50 p-6 text-center">
+          <div className="rounded-2xl bg-slate-50 px-4 py-3 text-xs text-slate-500">
+            <strong className="text-slate-950">{previewImages.length}</strong>/
+            {MAX_PREVIEW_IMAGES} imagens ·{' '}
+            <strong className="text-slate-950">
+              {fileSizeMB(previewTotalSize)}
+            </strong>{' '}
+            MB
+          </div>
+        </div>
+
+        <label className="mt-4 flex cursor-pointer flex-col items-center justify-center rounded-3xl border-2 border-dashed border-sky-200 bg-sky-50 p-6 text-center transition hover:bg-sky-100">
           <ImagePlus size={32} className="text-sky-600" />
           <span className="mt-2 text-sm font-black text-slate-950">
             {uploadingPreview ? 'Enviando...' : 'Enviar imagens'}
           </span>
-          <span className="text-xs text-slate-500">JPG, PNG ou WEBP</span>
+          <span className="text-xs text-slate-500">
+            JPG, PNG ou WEBP · máximo {MAX_PREVIEW_IMAGES} imagens
+          </span>
 
           <input
             type="file"
@@ -254,50 +398,116 @@ export function SellerProductCreatePage() {
             accept="image/jpeg,image/png,image/webp"
             className="hidden"
             disabled={uploadingPreview}
-            onChange={event => handlePreviewUpload(event.target.files)}
+            onChange={event => {
+              handlePreviewUpload(event.target.files)
+              event.currentTarget.value = ''
+            }}
           />
         </label>
+
+        {selectedPreview?.url && (
+          <div className="mt-4 overflow-hidden rounded-3xl border border-slate-100 bg-slate-100">
+            <img
+              src={assetUrl(selectedPreview.url)}
+              alt={selectedPreview.alt || selectedPreview.name}
+              className="max-h-[520px] w-full object-contain"
+            />
+          </div>
+        )}
 
         {previewImages.length > 0 && (
           <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
             {previewImages.map((file, index) => (
               <div
                 key={`${file.path}-${index}`}
-                className="relative overflow-hidden rounded-3xl bg-slate-100"
+                draggable
+                onDragStart={() => handleDragStart(index)}
+                onDragOver={handleDragOver}
+                onDrop={() => handleDrop(index)}
+                onClick={() => setSelectedPreviewIndex(index)}
+                className={`group cursor-pointer overflow-hidden rounded-3xl border bg-white shadow-sm transition ${
+                  selectedPreviewIndex === index
+                    ? 'border-sky-500 ring-2 ring-sky-100'
+                    : 'border-slate-100'
+                }`}
               >
-                {file.url && (
-                  <img
-                    src={assetUrl(file.url)}
-                    alt={file.name}
-                    className="aspect-square w-full object-cover"
-                  />
-                )}
+                <div className="relative bg-slate-100">
+                  {file.url && (
+                    <img
+                      src={assetUrl(file.url)}
+                      alt={file.alt || file.name}
+                      className="aspect-square w-full object-cover"
+                    />
+                  )}
 
-                <button
-                  type="button"
-                  onClick={() => removePreview(index)}
-                  className="absolute right-2 top-2 rounded-full bg-white p-2 text-red-500 shadow-sm"
-                >
-                  <Trash2 size={16} />
-                </button>
+                  <button
+                    type="button"
+                    className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-white/90 px-2 py-1 text-[10px] font-black text-slate-600 shadow-sm"
+                  >
+                    <GripVertical size={13} />
+                    Arrastar
+                  </button>
+
+                  {index === 0 && (
+                    <span className="absolute bottom-2 left-2 flex items-center gap-1 rounded-full bg-amber-400 px-2 py-1 text-[10px] font-black text-amber-950 shadow-sm">
+                      <Star size={12} fill="currentColor" />
+                      Principal
+                    </span>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={event => {
+                      event.stopPropagation()
+                      removePreview(index)
+                    }}
+                    className="absolute right-2 top-2 rounded-full bg-white p-2 text-red-500 shadow-sm"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+
+                <div className="space-y-2 p-3">
+                  <input
+                    value={file.alt || ''}
+                    onClick={event => event.stopPropagation()}
+                    onChange={event => updatePreviewAlt(index, event.target.value)}
+                    placeholder="Texto alternativo"
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none focus:border-sky-500"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={event => {
+                      event.stopPropagation()
+                      setMainPreview(index)
+                    }}
+                    disabled={index === 0}
+                    className="w-full rounded-xl bg-sky-50 px-3 py-2 text-xs font-black text-sky-700 disabled:bg-slate-50 disabled:text-slate-400"
+                  >
+                    {index === 0 ? 'Imagem principal' : 'Definir como principal'}
+                  </button>
+                </div>
               </div>
             ))}
           </div>
         )}
       </section>
 
-      {isDigital && (
+            {isDigital && (
         <section className="rounded-3xl border border-slate-100 p-4">
           <h3 className="font-black text-slate-950">Arquivo original</h3>
           <p className="mt-1 text-xs text-slate-500">
             Esse arquivo fica privado e só será liberado após pagamento.
           </p>
 
-          <label className="mt-4 flex cursor-pointer flex-col items-center justify-center rounded-3xl border-2 border-dashed border-slate-200 bg-slate-50 p-6 text-center">
+          <label className="mt-4 flex cursor-pointer flex-col items-center justify-center rounded-3xl border-2 border-dashed border-slate-200 bg-slate-50 p-6 text-center transition hover:bg-slate-100">
             <Upload size={32} className="text-slate-700" />
+
             <span className="mt-2 text-sm font-black text-slate-950">
               {uploadingOriginal ? 'Enviando...' : 'Enviar arquivo'}
             </span>
+
             <span className="text-xs text-slate-500">
               PDF, ZIP, imagens, SVG, DOCX, XLSX ou PPTX
             </span>
@@ -307,25 +517,32 @@ export function SellerProductCreatePage() {
               multiple
               className="hidden"
               disabled={uploadingOriginal}
-              onChange={event => handleOriginalUpload(event.target.files)}
+              onChange={event => {
+                handleOriginalUpload(event.target.files)
+                event.currentTarget.value = ''
+              }}
             />
           </label>
 
           {digitalFiles.length > 0 && (
-            <div className="mt-4 space-y-2">
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
               {digitalFiles.map((file, index) => (
                 <div
                   key={`${file.path}-${index}`}
-                  className="flex items-center justify-between gap-3 rounded-2xl bg-slate-50 p-3"
+                  className="flex items-center justify-between gap-3 rounded-3xl border border-slate-100 bg-slate-50 p-4"
                 >
                   <div className="flex min-w-0 items-center gap-3">
-                    <FileArchive className="shrink-0 text-sky-600" size={22} />
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-sky-600">
+                      <FileArchive size={22} />
+                    </div>
+
                     <div className="min-w-0">
                       <p className="truncate text-sm font-black text-slate-950">
                         {file.name}
                       </p>
+
                       <p className="text-xs text-slate-500">
-                        {(file.size / 1024 / 1024).toFixed(2)} MB
+                        {fileSizeMB(file.size)} MB
                       </p>
                     </div>
                   </div>
@@ -362,6 +579,7 @@ export function SellerProductCreatePage() {
             className="input"
           >
             <option value="">Selecione</option>
+
             {categories.map(category => (
               <option key={category.id} value={category.id}>
                 {category.name}
@@ -407,8 +625,15 @@ export function SellerProductCreatePage() {
           value={description}
           onChange={event => setDescription(event.target.value)}
           required
-          rows={5}
-          className="input resize-none"
+          rows={7}
+          placeholder={`Descreva o produto com detalhes.
+
+Exemplo:
+- O que acompanha
+- Como usar
+- Formatos disponíveis
+- Observações importantes`}
+          className="input resize-none leading-6"
         />
       </Field>
 
@@ -419,6 +644,7 @@ export function SellerProductCreatePage() {
               <h3 className="font-black text-slate-950">
                 Planos de download
               </h3>
+
               <p className="text-xs text-slate-500">
                 Defina limites como 5, 10 ou permanente.
               </p>
@@ -440,7 +666,9 @@ export function SellerProductCreatePage() {
                   <Field label="Nome do plano">
                     <input
                       value={plan.name}
-                      onChange={event => updatePlan(index, 'name', event.target.value)}
+                      onChange={event =>
+                        updatePlan(index, 'name', event.target.value)
+                      }
                       required
                       className="input"
                     />
@@ -449,7 +677,9 @@ export function SellerProductCreatePage() {
                   <Field label="Preço em centavos">
                     <input
                       value={plan.price}
-                      onChange={event => updatePlan(index, 'price', event.target.value)}
+                      onChange={event =>
+                        updatePlan(index, 'price', event.target.value)
+                      }
                       required
                       className="input"
                     />
@@ -459,7 +689,9 @@ export function SellerProductCreatePage() {
                     <input
                       value={plan.downloadLimit}
                       disabled={plan.isPermanent}
-                      onChange={event => updatePlan(index, 'downloadLimit', event.target.value)}
+                      onChange={event =>
+                        updatePlan(index, 'downloadLimit', event.target.value)
+                      }
                       className="input disabled:opacity-50"
                     />
                   </Field>
@@ -470,7 +702,9 @@ export function SellerProductCreatePage() {
                     <input
                       type="checkbox"
                       checked={plan.isPermanent}
-                      onChange={event => updatePlan(index, 'isPermanent', event.target.checked)}
+                      onChange={event =>
+                        updatePlan(index, 'isPermanent', event.target.checked)
+                      }
                     />
                     Permanente
                   </label>
@@ -493,29 +727,64 @@ export function SellerProductCreatePage() {
 
       {isPhysical && (
         <section className="rounded-3xl border border-slate-100 p-4">
-          <h3 className="font-black text-slate-950">
-            Estoque e envio
-          </h3>
+          <div className="flex items-start gap-2">
+            <Info size={18} className="mt-0.5 text-sky-600" />
+
+            <div>
+              <h3 className="font-black text-slate-950">
+                Estoque e envio
+              </h3>
+
+              <p className="text-xs leading-5 text-slate-500">
+                Essas medidas são usadas para cálculo de frete e organização
+                logística.
+              </p>
+            </div>
+          </div>
 
           <div className="mt-4 grid gap-3 md:grid-cols-5">
             <Field label="Estoque">
-              <input value={stock} onChange={event => setStock(event.target.value)} className="input" />
+              <input
+                value={stock}
+                onChange={event => setStock(event.target.value)}
+                className="input"
+              />
             </Field>
 
             <Field label="Peso">
-              <input value={weight} onChange={event => setWeight(event.target.value)} placeholder="gramas" className="input" />
+              <input
+                value={weight}
+                onChange={event => setWeight(event.target.value)}
+                placeholder="gramas"
+                className="input"
+              />
             </Field>
 
             <Field label="Largura">
-              <input value={width} onChange={event => setWidth(event.target.value)} placeholder="cm" className="input" />
+              <input
+                value={width}
+                onChange={event => setWidth(event.target.value)}
+                placeholder="cm"
+                className="input"
+              />
             </Field>
 
             <Field label="Altura">
-              <input value={height} onChange={event => setHeight(event.target.value)} placeholder="cm" className="input" />
+              <input
+                value={height}
+                onChange={event => setHeight(event.target.value)}
+                placeholder="cm"
+                className="input"
+              />
             </Field>
 
             <Field label="Comprimento">
-              <input value={length} onChange={event => setLength(event.target.value)} placeholder="cm" className="input" />
+              <input
+                value={length}
+                onChange={event => setLength(event.target.value)}
+                placeholder="cm"
+                className="input"
+              />
             </Field>
           </div>
         </section>

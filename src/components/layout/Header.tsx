@@ -1,6 +1,9 @@
 import { Link, NavLink } from 'react-router-dom'
 import { Bell, Heart, Search, ShoppingCart, User } from 'lucide-react'
+
 import { InstallPWAButton } from '../pwa/InstallPWAButton'
+import { useAuthStore } from '../../stores/auth.store'
+import { assetUrl } from '../../utils/assets'
 
 const navItems = [
   { to: '/', label: 'Início' },
@@ -10,6 +13,9 @@ const navItems = [
 ]
 
 export function Header() {
+  const user = useAuthStore(state => state.user)
+  const avatarUrl = user?.avatar?.url ? assetUrl(user.avatar.url) : null
+
   return (
     <>
       <InstallPWAButton />
@@ -45,6 +51,7 @@ export function Header() {
             <Link
               className="rounded-full p-2 text-slate-700 hover:bg-white"
               to="/catalogo"
+              aria-label="Buscar produtos"
             >
               <Search size={21} />
             </Link>
@@ -52,6 +59,7 @@ export function Header() {
             <Link
               className="rounded-full p-2 text-slate-700 hover:bg-white"
               to="/favoritos"
+              aria-label="Favoritos"
             >
               <Heart size={21} />
             </Link>
@@ -59,6 +67,7 @@ export function Header() {
             <Link
               className="rounded-full p-2 text-slate-700 hover:bg-white"
               to="/carrinho"
+              aria-label="Carrinho"
             >
               <ShoppingCart size={21} />
             </Link>
@@ -66,15 +75,25 @@ export function Header() {
             <Link
               className="rounded-full p-2 text-slate-700 hover:bg-white"
               to="/minha-conta/notificacoes"
+              aria-label="Notificações"
             >
               <Bell size={21} />
             </Link>
 
             <Link
-              className="hidden rounded-full bg-slate-950 p-2 text-white md:inline-flex"
+              className="hidden h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-slate-950 text-white md:inline-flex"
               to="/minha-conta"
+              aria-label="Minha conta"
             >
-              <User size={19} />
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={user?.name || 'Usuário'}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <User size={19} />
+              )}
             </Link>
           </div>
         </div>

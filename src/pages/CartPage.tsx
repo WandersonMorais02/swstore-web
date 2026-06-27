@@ -8,6 +8,13 @@ import {
 } from '../features/cart/cart.hooks'
 import { assetUrl } from '../utils/assets'
 import { formatMoney } from '../utils/money'
+import type { ProductFile } from '../types/product'
+
+function getMainImage(images?: ProductFile[]) {
+  if (!images?.length) return null
+
+  return images.find(image => image.isMain) || images[0]
+}
 
 export function CartPage() {
   const navigate = useNavigate()
@@ -23,7 +30,7 @@ export function CartPage() {
     const product = item.productId
 
     const selectedPlan = product.downloadPlans?.find(plan => {
-      return plan._id === item.planId
+      return plan._id === item.planId || plan.id === item.planId
     })
 
     const price = selectedPlan
@@ -58,7 +65,7 @@ export function CartPage() {
   if (items.length === 0) {
     return (
       <div className="flex min-h-[65vh] flex-col items-center justify-center rounded-[2rem] bg-white p-8 text-center shadow-sm">
-        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-indigo-50 text-indigo-600">
+        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-sky-50 text-sky-600">
           <ShoppingBag size={34} />
         </div>
 
@@ -73,7 +80,7 @@ export function CartPage() {
 
         <Link
           to="/catalogo"
-          className="mt-6 rounded-2xl bg-indigo-600 px-5 py-3 text-sm font-black text-white"
+          className="mt-6 rounded-2xl bg-sky-600 px-5 py-3 text-sm font-black text-white"
         >
           Ver produtos
         </Link>
@@ -93,10 +100,10 @@ export function CartPage() {
       <div className="space-y-3">
         {items.map(item => {
           const product = item.productId
-          const image = product.previewImages?.[0]?.url
+          const image = getMainImage(product.previewImages)
 
           const selectedPlan = product.downloadPlans?.find(plan => {
-            return plan._id === item.planId
+            return plan._id === item.planId || plan.id === item.planId
           })
 
           const unitPrice = selectedPlan
@@ -118,10 +125,10 @@ export function CartPage() {
                   to={`/produto/${product.slug}`}
                   className="h-24 w-24 shrink-0 overflow-hidden rounded-3xl bg-slate-100"
                 >
-                  {image ? (
+                  {image?.url ? (
                     <img
-                      src={assetUrl(image)}
-                      alt={product.name}
+                      src={assetUrl(image.url)}
+                      alt={image.alt || product.name}
                       className="h-full w-full object-cover"
                     />
                   ) : (
@@ -141,7 +148,7 @@ export function CartPage() {
                         {product.name}
                       </Link>
 
-                      <p className="mt-1 text-xs font-bold uppercase text-indigo-600">
+                      <p className="mt-1 text-xs font-bold uppercase text-sky-600">
                         {product.type}
                       </p>
 
@@ -153,6 +160,7 @@ export function CartPage() {
                     </div>
 
                     <button
+                      type="button"
                       onClick={() => removeItemMutation.mutate(item._id)}
                       className="rounded-full p-2 text-red-500 hover:bg-red-50"
                     >
@@ -164,6 +172,7 @@ export function CartPage() {
                     {isPhysical ? (
                       <div className="flex items-center gap-2">
                         <button
+                          type="button"
                           onClick={() =>
                             updateQuantity(item._id, item.quantity - 1)
                           }
@@ -177,6 +186,7 @@ export function CartPage() {
                         </span>
 
                         <button
+                          type="button"
                           onClick={() =>
                             updateQuantity(item._id, item.quantity + 1)
                           }
@@ -228,8 +238,9 @@ export function CartPage() {
         </div>
 
         <button
+          type="button"
           onClick={() => navigate('/checkout')}
-          className="mt-5 w-full rounded-2xl bg-indigo-600 px-5 py-4 text-sm font-black text-white"
+          className="mt-5 w-full rounded-2xl bg-sky-600 px-5 py-4 text-sm font-black text-white"
         >
           Continuar para checkout
         </button>

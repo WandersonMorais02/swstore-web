@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { api } from '../../services/api'
 import type { Order } from '../../types/order'
+import type { User } from '../../types/auth'
+import type { UploadedFile } from '../seller/file.service'
 
 export type License = {
   id: string
@@ -22,6 +24,11 @@ export type Notification = {
   readAt: string | null
   isRead: boolean
   createdAt: string
+}
+
+export type UpdateProfilePayload = {
+  name?: string
+  avatar?: UploadedFile | null
 }
 
 export async function getMyOrders() {
@@ -49,6 +56,11 @@ export async function getMyNotifications() {
 
 export async function readNotification(id: string) {
   const { data } = await api.patch(`/notifications/${id}/read`)
+  return data
+}
+
+export async function updateMyProfile(payload: UpdateProfilePayload) {
+  const { data } = await api.patch<User>('/auth/me', payload)
   return data
 }
 

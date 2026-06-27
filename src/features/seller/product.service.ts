@@ -1,9 +1,25 @@
 import { api } from '../../services/api'
 import type { UploadedFile } from './file.service'
 
+export type ProductType = 'DIGITAL' | 'PHYSICAL' | 'HYBRID'
+
+export type DownloadPlanPayload = {
+  name: string
+  price: number
+  downloadLimit?: number | null
+  isPermanent: boolean
+}
+
+export type ProductDimensionsPayload = {
+  weight: number
+  width: number
+  height: number
+  length: number
+}
+
 export type CreateProductPayload = {
   categoryId: string
-  type: 'DIGITAL' | 'PHYSICAL' | 'HYBRID'
+  type: ProductType
   name: string
   description: string
   price: number
@@ -13,24 +29,14 @@ export type CreateProductPayload = {
   digitalFiles?: UploadedFile[]
 
   stock?: number
+  dimensions?: ProductDimensionsPayload
 
-  dimensions?: {
-    weight: number
-    width: number
-    height: number
-    length: number
-  }
-
-  downloadPlans?: {
-    name: string
-    price: number
-    downloadLimit?: number | null
-    isPermanent: boolean
-  }[]
+  downloadPlans?: DownloadPlanPayload[]
+  tags?: string[]
+  status?: 'DRAFT' | 'PENDING_APPROVAL'
 }
 
 export async function createSellerProduct(payload: CreateProductPayload) {
   const { data } = await api.post('/products', payload)
   return data
 }
-
